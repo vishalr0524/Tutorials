@@ -24,7 +24,7 @@ class SobelDetector(EdgeDetection):
 
     def detect(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         gray = self.smooth()
-        sobel_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+        sobel_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)    #Scharr without kernel size
         sobel_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
         magnitude = np.sqrt(sobel_x ** 2 + sobel_y ** 2)
         magnitude = np.uint8(np.clip(magnitude, 0, 255))
@@ -63,7 +63,7 @@ class CannyDetector(EdgeDetection):
 
 
 def main():
-    image_path = "/home/hp/Documents/Daily_Task/Day_2/Assets/sudoku.jpg"
+    image_path = "/home/hp/Documents/Daily_Task/Day_2/Assets/book.jpeg"
 
     sobel = SobelDetector(image_path)
     sx, sy, smag = sobel.detect()
@@ -75,7 +75,7 @@ def main():
     canny = CannyDetector(image_path)
     canny_edges = canny.detect()
 
-    # Show results (for study purposes)
+
     cv2.imshow("Sobel Magnitude", smag)
     cv2.imshow("Otsu Threshold", otsu_th)
     cv2.imshow("Canny Edges", canny_edges)
