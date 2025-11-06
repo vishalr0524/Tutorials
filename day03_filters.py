@@ -58,6 +58,12 @@ class FilterApplier:
     @staticmethod
     def apply_gaussian_filter(image: np.ndarray, ksize=5, sigma=1) -> np.ndarray:
         return cv2.GaussianBlur(image, (ksize, ksize), sigma)
+    
+    @staticmethod
+    def apply_grayscale(image: np.ndarray) -> np.ndarray:
+        if len(image.shape) == 3:
+            return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        return image
 
     @staticmethod
     def apply_median_filter(image: np.ndarray, ksize=5) -> np.ndarray:

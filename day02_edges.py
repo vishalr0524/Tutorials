@@ -6,14 +6,21 @@ from typing import Tuple
 class EdgeDetection:
     """Base class for image loading and display utilities."""
 
-    def __init__(self, image_path: str):
-        self.image_path = image_path
-        self.image = cv2.imread(image_path)
-        if self.image is None:
-            raise FileNotFoundError(f"Image not found at: {image_path}")
+    def __init__(self, image_path: str = None, image : np.ndarray = None):
+        if image is not None:
+            self.image = image
+        elif image_path is not None:
+            self.image = cv2.imread(image_path)
+            if self.image is None:
+                raise FileNotFoundError(f"Image not found at: {image_path}")
+        else:
+            raise ValueError("Either image or image path needs to be provided")
+        
 
     def to_gray(self) -> np.ndarray:
-        return cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+        if len(self.image.shape) == 3:
+            return cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+        return self.image
 
     def smooth(self, ksize: int = 5) -> np.ndarray:
         return cv2.GaussianBlur(self.to_gray(), (ksize, ksize), 0)
