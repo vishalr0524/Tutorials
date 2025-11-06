@@ -29,18 +29,27 @@ def main():
 
         adapt = Thresholding(image=blur)
         cvt_adapt = adapt.otsu_threshold()
-        adapt1 = Thresholding(image=smag)
+
+        smag_closed = cv2.morphologyEx(smag, cv2.MORPH_CLOSE, np.ones((5,5), np.uint8))
+        adapt1 = Thresholding(image=smag_closed)
         cvt_adapt1 = adapt1.otsu_threshold()
+        contours, hierarchy = cv2.findContours(cvt_adapt, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        #contour_img = cv2.drawContours(img.copy(), contours, -1, (0, 255, 0), 2)
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if area > 500:  # filter small noise; tweak threshold as needed
+                x, y, w, h = cv2.boundingRect(cnt)
+                cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
 
-        
-     
+        cv2.imshow("Contours", img)
 
-        
         cv2.imshow("Image",img)
         cv2.imshow("Filter",blur)
         cv2.imshow("Edge",smag)
         cv2.imshow("Threshold",cvt_adapt)
         cv2.imshow("Thresholdwithedge",cvt_adapt1)
+        cv2.imshow("MorphClosed", smag_closed)
+
 
         cv2.waitKey(0)
         cv2.destroyAllWindows()
