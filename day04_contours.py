@@ -1,20 +1,19 @@
-"""
-day04_contours.py
------------------
-Detects contours in a colored shapes image, identifies shape type, 
-and draws contours with labels on the image.
-"""
-
 import cv2
 import numpy as np
-
 
 class ContourAnalyzer:
     """A class for detecting and classifying shapes in an image."""
 
-    def __init__(self, image_path: str):
+    def __init__(self, image_path: str = None, image : np.ndarray = None):
+        
+        if image is not None:
+            self.original_image = image
+        elif image_path is not None:
+            self.original_image = cv2.imread(image_path)
+            if self.original_image is None:
+                raise FileNotFoundError(f"Image not found: {image_path}")
+
         self.image_path = image_path
-        self.original_image = self._load_image()
         self.gray_image = self._convert_to_gray(self.original_image)
         self.contours = []
         self.hierarchy = None
@@ -25,9 +24,11 @@ class ContourAnalyzer:
         if image is None:
             raise FileNotFoundError(f"Image not found: {self.image_path}")
         return image
-
+        
     def _convert_to_gray(self, image: np.ndarray) -> np.ndarray:
         """Convert to grayscale."""
+        if len(image.shape) == 2:  # already grayscale
+            return image
         return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     def preprocess(self) -> np.ndarray:
@@ -42,7 +43,7 @@ class ContourAnalyzer:
     def find_contours(self, edge_image: np.ndarray) -> None:
         """Find contours in the image."""
         contours, hierarchy = cv2.findContours(
-            edge_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+            edge_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
         )
         self.contours = contours
         self.hierarchy = hierarchy
@@ -115,6 +116,10 @@ class ContourAnalyzer:
         print(f"Total contours detected: {len(self.contours)}")
 
         result = self.analyze_and_draw()
+        cv2.namedWindow("Original", cv2.WINDOW_NORMAL)
+        cv2.namedWindow("Edges", cv2.WINDOW_NORMAL)
+        cv2.namedWindow("Detected Shapes", cv2.WINDOW_NORMAL)
+
 
         cv2.imshow("Original", self.original_image)
         cv2.imshow("Edges", edges)
@@ -125,7 +130,7 @@ class ContourAnalyzer:
 
 def main():
     """Main entry."""
-    image_path = "/home/hp/Documents/Daily_Task/Day_2/Assets/shape.png"
+    image_path = "/home/hp/Documents/Daily_Task/Day_2/Assets/shapes_1.jpg"
     analyzer = ContourAnalyzer(image_path)
     analyzer.run()
 
