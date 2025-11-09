@@ -1,3 +1,4 @@
+#main.py
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
@@ -24,38 +25,48 @@ def main():
         blur = FilterApplier.apply_gaussian_filter(cvt)
 
 
-
-        adapt = Thresholding(image=blur)
-        cvt_adapt = adapt.otsu_threshold()
-
-        sobel = SobelDetector(image=cvt_adapt)
+        sobel = SobelDetector(image=blur)
         sx, sy, smag = sobel.detect()
         # canny = CannyDetector(image=blur)
         # can_edge = canny.detect()
 
-        smag_closed = cv2.morphologyEx(smag, cv2.MORPH_CLOSE, np.ones((5,5), np.uint8))
+        # But apply Canny-like thresholding
+        # Lower threshold for weak edges, upper for strong edges
+        lower_thresh = np.percentile(smag[smag > 0], 60)  # 20th percentile
+        upper_thresh = np.percentile(smag[smag > 0], 100)  # 80th percentile
 
-        ctr = ContourAnalyzer(image=smag_closed)
-        ctr.find_contours(edge_image=smag_closed)
-        shape = ctr.analyze_and_draw()
+        # Create binary edge map
+        binary_edges = np.zeros_like(smag)
+        binary_edges[smag > lower_thresh] = 255
+
+        # Clean up with morphology
+        edges_closed = cv2.morphologyEx(binary_edges, cv2.MORPH_CLOSE, np.ones((3,3), np.uint8))
+
+        ctr = ContourAnalyzer(image=img)
+        ctr.find_contours(edge_image=edges_closed, include_inner=True)
+        shape, contour_data = ctr.analyze_and_draw(show_inner=True, return_contour_data=True)
+
+                # Show histograms for each detected shape
+        for data in contour_data:
+            fig = ctr.visualize_color_confidence(img, data['contour'], data['color'])
+            plt.show(block=False)  # Non-blocking
 
         cv2.namedWindow("Image", cv2.WINDOW_NORMAL)
         cv2.namedWindow("Filter", cv2.WINDOW_NORMAL)
         cv2.namedWindow("Edge", cv2.WINDOW_NORMAL)
-        cv2.namedWindow("Threshold", cv2.WINDOW_NORMAL)
-        cv2.namedWindow("MorphClosed", cv2.WINDOW_NORMAL)
         cv2.namedWindow("contours", cv2.WINDOW_NORMAL)
+        cv2.namedWindow("Threshold", cv2.WINDOW_NORMAL)
 
         cv2.imshow("Image", img)
         cv2.imshow("Filter", blur)
         cv2.imshow("Edge", smag)
-        cv2.imshow("Threshold", cvt_adapt)
-        cv2.imshow("MorphClosed", smag_closed)
+        cv2.imshow("Threshold", binary_edges)
         cv2.imshow("contours", shape)
 
-
-
-        cv2.waitKey(0)
+        print("Press 'q' to quit...")
+        while True:
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
         cv2.destroyAllWindows()
 
     except FileNotFoundError as e:
