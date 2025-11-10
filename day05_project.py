@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import argparse
 from day02_edges import SobelDetector, CannyDetector, Thresholding
 from day03_filters import FilterApplier
 from day04_contours import ContourAnalyzer
@@ -11,12 +12,58 @@ class ImageLoader:
         if self.image_path is None:
             raise FileNotFoundError(f"Image is not found in : {image_path}")
         self.image = None
-
+    
     def load_image(self) -> np.ndarray:
         self.image = cv2.imread(self.image_path)
         return self.image
 
-def main():
+def process_image_with_stages(image_path: str):
+    """Process single image and show all intermediate stages."""
+    try:
+        loader = ImageLoader(image_path)
+        img = loader.load_image()
+        cvt = FilterApplier.apply_grayscale(img)
+        blur = FilterApplier.apply_gaussian_filter(cvt)
+
+        sobel = SobelDetector(image=blur)
+        sx, sy, smag = sobel.detect()
+        # canny = CannyDetector(image=blur)
+        # can_edge = canny.detect()
+
+        smag_closed = cv2.morphologyEx(smag, cv2.MORPH_CLOSE, np.ones((5,5), np.uint8))
+
+        adapt = Thresholding(image=smag_closed)
+        cvt_adapt = adapt.otsu_threshold()
+
+        ctr = ContourAnalyzer(image=img)
+        ctr.find_contours(edge_image=smag_closed, include_inner=True)
+        shape = ctr.analyze_and_draw(show_inner=True)
+
+        cv2.namedWindow("Image", cv2.WINDOW_NORMAL)
+        cv2.namedWindow("Filter", cv2.WINDOW_NORMAL)
+        cv2.namedWindow("Edge", cv2.WINDOW_NORMAL)
+        cv2.namedWindow("Threshold", cv2.WINDOW_NORMAL)
+        cv2.namedWindow("MorphClosed", cv2.WINDOW_NORMAL)
+        cv2.namedWindow("contours", cv2.WINDOW_NORMAL)
+
+        cv2.imshow("Image", img)
+        cv2.imshow("Filter", blur)
+        cv2.imshow("Edge", smag)
+        cv2.imshow("Threshold", cvt_adapt)
+        cv2.imshow("MorphClosed", smag_closed)
+        cv2.imshow("contours", shape)
+
+        print("Press 'q' to quit...")
+        while True:
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        cv2.destroyAllWindows()
+
+    except Exception as e:
+        print(f"Error: {e}")
+
+def process_webcam():
+    """Process webcam feed in real-time."""
     try:
         cap = cv2.VideoCapture(0)  # 0 for default webcam
         
@@ -66,7 +113,7 @@ def main():
             #     plt.show(block=True)  # Non-blocking
             
             # Display results
-            cv2.imshow("Webcam Feed", img)
+            # cv2.imshow("Webcam Feed", img)
             cv2.imshow("Detected Shapes", shape)
             
             # Key controls
@@ -87,6 +134,21 @@ def main():
         print(f"OpenCV Error: {e}")
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
+
+def main():
+    parser = argparse.ArgumentParser(description='Shape Detection - Webcam or Image Mode')
+    parser.add_argument('--input', type=str, help='Path to input image (if not provided, uses webcam)')
+    
+    args = parser.parse_args()
+    
+    if args.input:
+        # Single image mode with all stages
+        print(f"Processing image: {args.input}")
+        process_image_with_stages(args.input)
+    else:
+        # Webcam mode
+        print("Starting webcam mode...")
+        process_webcam()
 
 if __name__ == "__main__":
     main()

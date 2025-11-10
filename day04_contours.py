@@ -1,4 +1,3 @@
-#contours.py
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
@@ -43,12 +42,105 @@ class ContourAnalyzer:
         return edges
     
     @staticmethod
-    def visualize_color_confidence(image: np.ndarray, contour: np.ndarray, color_name: str) -> np.ndarray:
-        """Create histogram showing color distribution and confidence."""
-        # Extract ring pixels (same logic as detect_color)
+    def plot_color_histogram(contour_data, image):
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import cv2
+
+        bucket = {}
+
+        # Collect ring pixels for each detected shape
+        for entry in contour_data:
+            shape = f"Shape #{entry['index']}: {entry['color']} {entry['shape']}"
+            contour = entry["contour"]
+
+            ring_pixels = ContourAnalyzer._get_ring_pixels(image, contour)
+            if len(ring_pixels) == 0:
+                continue
+
+            if shape not in bucket:
+                bucket[shape] = []
+
+            bucket[shape].extend(ring_pixels.tolist())
+
+        if not bucket:
+            print("No ring pixel data found.")
+            return
+
+        shape_names = []
+        h_min = []
+        h_max = []
+        s_min = []
+        s_max = []
+        v_min = []
+        v_max = []
+
+        # Compute HSV min/max per shape
+        for shape, pixels in bucket.items():
+            px = np.array(pixels)
+
+            hsv = cv2.cvtColor(
+                px.reshape(-1, 1, 3).astype(np.uint8),
+                cv2.COLOR_BGR2HSV
+            ).reshape(-1, 3)
+
+            h_vals, s_vals, v_vals = hsv[:, 0], hsv[:, 1], hsv[:, 2]
+
+            shape_names.append(shape)
+            h_min.append(int(np.min(h_vals)))
+            h_max.append(int(np.max(h_vals)))
+            s_min.append(int(np.min(s_vals)))
+            s_max.append(int(np.max(s_vals)))
+            v_min.append(int(np.min(v_vals)))
+            v_max.append(int(np.max(v_vals)))
+
+        # -------------------------------------------------------
+        # OPTION D: Min–max vertical line plot + labeled HSV values
+        # -------------------------------------------------------
+        x = np.arange(len(shape_names))
+        plt.figure(figsize=(20, 7))
+
+        for i in range(len(shape_names)):
+            # H range (red)
+            plt.plot([i, i], [h_min[i], h_max[i]], color='red', linewidth=4)
+
+            # S range (green)
+            plt.plot([i + 0.12, i + 0.12], [s_min[i], s_max[i]], color='green', linewidth=4)
+
+            # V range (blue)
+            plt.plot([i - 0.12, i - 0.12], [v_min[i], v_max[i]], color='blue', linewidth=4)
+
+            # Add MIN label (bottom)
+            min_y = min(h_min[i], s_min[i], v_min[i]) - 5
+            plt.text(
+                i - 0.35, min_y,
+                f"({h_min[i]}, {s_min[i]}, {v_min[i]})",
+                fontsize=7, ha='left', va='top'
+            )
+
+            # Add MAX label (top)
+            max_y = max(h_max[i], s_max[i], v_max[i]) + 5
+            plt.text(
+                i - 0.35, max_y,
+                f"({h_max[i]}, {s_max[i]}, {v_max[i]})",
+                fontsize=7, ha='left', va='bottom'
+            )
+
+        plt.xticks(x, shape_names, rotation=45, ha='right')
+        plt.ylabel("HSV Values")
+        plt.title("HSV Min–Max Range per Shape with HSV Labels (H=red, S=green, V=blue)")
+        plt.tight_layout()
+        plt.show()
+
+
+
+
+        
+    @staticmethod
+    def _get_ring_pixels(image: np.ndarray, contour: np.ndarray) -> np.ndarray:
+        """Helper to get ring pixels for use in aggregation."""
         outer_mask = np.zeros(image.shape[:2], dtype=np.uint8)
         cv2.drawContours(outer_mask, [contour], -1, 255, -1)
-        
         area = cv2.contourArea(contour)
         erosion_size = max(2, int(np.sqrt(area) * 0.10))
         kernel = np.ones((erosion_size, erosion_size), np.uint8)
@@ -64,58 +156,8 @@ class ContourAnalyzer:
                 y1, y2 = max(0, cy-sample_radius), min(image.shape[0], cy+sample_radius)
                 x1, x2 = max(0, cx-sample_radius), min(image.shape[1], cx+sample_radius)
                 ring_pixels = image[y1:y2, x1:x2].reshape(-1, 3)
-        
-        # Create histogram figure
-        fig, axes = plt.subplots(2, 2, figsize=(10, 8))
-        fig.suptitle(f'Color Analysis: {color_name}', fontsize=14, fontweight='bold')
-        
-        # BGR histogram
-        colors_bgr = ('b', 'g', 'r')
-        for i, col in enumerate(colors_bgr):
-            hist = cv2.calcHist([ring_pixels], [i], None, [256], [0, 256])
-            axes[0, 0].plot(hist, color=col, label=col.upper())
-        axes[0, 0].set_title('BGR Distribution')
-        axes[0, 0].set_xlabel('Intensity')
-        axes[0, 0].set_ylabel('Frequency')
-        axes[0, 0].legend()
-        
-        # HSV histogram
-        hsv_pixels = cv2.cvtColor(ring_pixels.reshape(-1, 1, 3), cv2.COLOR_BGR2HSV).reshape(-1, 3)
-        axes[0, 1].hist(hsv_pixels[:, 0], bins=180, color='purple', alpha=0.7)
-        axes[0, 1].set_title('Hue Distribution')
-        axes[0, 1].set_xlabel('Hue (0-180)')
-        axes[0, 1].set_ylabel('Frequency')
-        
-        # Color frequency bar chart
-        unique_colors, counts = np.unique(ring_pixels.reshape(-1, 3), axis=0, return_counts=True)
-        top_5_idx = np.argsort(counts)[-5:][::-1]
-        top_colors = unique_colors[top_5_idx]
-        top_counts = counts[top_5_idx]
-        
-        color_patches = [top_colors[i][::-1]/255.0 for i in range(len(top_colors))]  # BGR to RGB
-        axes[1, 0].bar(range(len(top_counts)), top_counts, color=color_patches)
-        axes[1, 0].set_title('Top 5 Dominant Colors')
-        axes[1, 0].set_xlabel('Color Rank')
-        axes[1, 0].set_ylabel('Pixel Count')
-        
-        # Confidence metrics
-        total_pixels = len(ring_pixels)
-        dominant_count = counts[np.argmax(counts)]
-        confidence = (dominant_count / total_pixels) * 100
-        
-        metrics_text = f"Total Pixels: {total_pixels}\n"
-        metrics_text += f"Dominant Color Pixels: {dominant_count}\n"
-        metrics_text += f"Confidence: {confidence:.1f}%\n"
-        metrics_text += f"Unique Colors: {len(unique_colors)}\n"
-        metrics_text += f"Classification: {color_name}"
-        
-        axes[1, 1].text(0.1, 0.5, metrics_text, fontsize=12, verticalalignment='center',
-                        bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
-        axes[1, 1].axis('off')
-        axes[1, 1].set_title('Confidence Metrics')
-        
-        plt.tight_layout()
-        return fig
+                
+        return ring_pixels
 
     def find_contours(self, edge_image: np.ndarray, include_inner: bool = False) -> None:
         """Find contours in the image."""
@@ -172,7 +214,7 @@ class ContourAnalyzer:
     def classify_shape(contour: np.ndarray) -> str:
         """Classify shape based on number of vertices."""
         approx = cv2.approxPolyDP(
-            contour, 0.04 * cv2.arcLength(contour, True), True
+            contour, 0.002 * cv2.arcLength(contour, True), True
         )
         vertices = len(approx)
 
@@ -209,7 +251,7 @@ class ContourAnalyzer:
 
         for i, contour in enumerate(self.contours):
             area = cv2.contourArea(contour)
-            if area < 500:
+            if area < 1000:
                 continue
 
             if not show_inner and self.hierarchy[0][i][3] != -1:
