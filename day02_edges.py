@@ -64,13 +64,13 @@ class Thresholding(EdgeDetection):
 class CannyDetector(EdgeDetection):
     """Implements multi-stage Canny edge detection."""
 
-    def detect(self, low_thresh: int = 50, high_thresh: int = 150) -> np.ndarray:
-        blurred = self.smooth()
-        return cv2.Canny(blurred, low_thresh, high_thresh)
+    def detect(self, low_thresh: int = 80, high_thresh: int = 120) -> np.ndarray:
+        blurred = self.image
+        return cv2.Canny(blurred, low_thresh, high_thresh, L2gradient=True)
 
 
 def main():
-    image_path = "/home/hp/Documents/Daily_Task/Day_2/Assets/book.jpeg"
+    image_path = "/home/hp/Documents/Daily_Task/Day_2/Assets/shapes_1.jpg"
 
     sobel = SobelDetector(image_path)
     sx, sy, smag = sobel.detect()
@@ -82,10 +82,14 @@ def main():
     canny = CannyDetector(image_path)
     canny_edges = canny.detect()
 
+    cv2.namedWindow("Sobel Magnitude", cv2.WINDOW_NORMAL)
+    cv2.namedWindow("Otsu Threshold", cv2.WINDOW_NORMAL)
+    cv2.namedWindow("Canny Edges", cv2.WINDOW_NORMAL)
 
     cv2.imshow("Sobel Magnitude", smag)
     cv2.imshow("Otsu Threshold", otsu_th)
     cv2.imshow("Canny Edges", canny_edges)
+    cv2.imwrite("canny_edges_output.png", canny_edges)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 

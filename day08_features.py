@@ -64,7 +64,7 @@ class SIFTDetector(FeatureDetector):
             sift = cv2.SIFT_create(nfeatures=n_features)
         else:
             try:
-                sift = cv2.xfeatures2d.SIFT_create(nfeatures=n_features) 
+                sift = cv2.SIFT_create(nfeatures=n_features) 
             except Exception:
                 sift = None
 

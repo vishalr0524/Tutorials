@@ -12,13 +12,16 @@ train_img_gray = cv2.cvtColor(train_img, cv2.COLOR_BGR2GRAY)
 orb = cv2.ORB_create() 
 
 query_keypoints, query_descriptors = orb.detectAndCompute(query_img_gray,None) 
+print("Number of keypoints:", len(query_keypoints))
+for kp in query_keypoints[:5]:   # print first 5
+    print(kp.pt, kp.size, kp.angle)
 train_keypoints, train_descriptors = orb.detectAndCompute(train_img_gray,None) 
 
 matcher = cv2.BFMatcher() 
 matches = matcher.match(query_descriptors,train_descriptors) 
 
 output_img = cv2.drawMatches(query_img, query_keypoints, 
-train_img, train_keypoints, matches[:20],None) 
+train_img, train_keypoints, matches[:10],None) 
  
 output_img = cv2.resize(output_img, (1200,650)) 
 

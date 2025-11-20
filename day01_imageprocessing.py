@@ -6,7 +6,7 @@ from typing import Tuple
 
 @dataclass
 class ImageProcessor:
-    image_path: str
+    image_path: str = None
     image: np.ndarray | None = None
 
     def load(self) -> np.ndarray:
@@ -45,7 +45,7 @@ class ImageProcessor:
 
 
 if __name__ == "__main__":
-    processor = ImageProcessor("/home/hp/Documents/Daily_Task/Day_2/Assets/balls.jpg")
+    processor = ImageProcessor("/home/hp/Documents/Daily_Task/Day_2/Assets/shapes_1.jpg")
 
     img = processor.load()
     rgb = processor.to_rgb()

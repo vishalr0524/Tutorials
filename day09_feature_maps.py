@@ -50,7 +50,7 @@ class FeatureMatcher:
                 return cv2.SIFT_create()
             except AttributeError:
                 try:
-                    return cv2.xfeatures2d.SIFT_create()
+                    return cv2.SIFT_create()
                 except Exception:
                     logger.warning("SIFT not available — falling back to ORB.")
                     return cv2.ORB_create(nfeatures=2000)
