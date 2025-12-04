@@ -226,18 +226,6 @@ class ImageAnalysisApp:
         # Redraw all groups
         # We need to rebuild self.group_items to track them correctly
         # Since we cleared canvas, we just iterate all_groups and draw them
-        # Note: draw_group appends to self.group_items, so we should reset it above (done)
-        
-        # Re-draw finalized groups
-        temp_all_groups = self.all_groups
-        # Actually, draw_group appends to all_groups ONLY IF we call compute. 
-        # But here we just want to DRAW.
-        # Let's refactor draw_group to separate logic or just be careful.
-        # My draw_group implementation DOES NOT append to all_groups. compute() does.
-        # So we can just call draw_group.
-        
-        # Wait, draw_group takes group_idx.
-        self.all_groups = temp_all_groups # Restore
         
         # Reset group_items to match all_groups structure (list of lists)
         self.group_items = [] 
@@ -248,8 +236,6 @@ class ImageAnalysisApp:
             self.draw_group(res, i)
 
         # Redraw current points
-        # self.add_point appends to current_points, so we shouldn't call it.
-        # We just draw them manually.
         for i, pt in enumerate(self.current_points):
             self._draw_single_point(pt, i + 1)
 
@@ -361,7 +347,8 @@ class ImageAnalysisApp:
         top = const["top"]
         next_top = const["next_top"]
         lowest = const["lowest"]
-        ix, iy = const["intersection"]
+        # (ix, iy) is the PERPENDICULAR PROJECTION of 'top' onto the 'next_top'-'lowest' line
+        ix, iy = const["intersection"] 
         proj = const["projection"]
         hyp_a = const["hyp_a"]
         hyp_b = const["hyp_b"]
@@ -374,27 +361,45 @@ class ImageAnalysisApp:
             return self.to_display_coords(pt[0], pt[1])
             
         # Axes
+        d_top = d(top)
         d_ix, d_iy = self.to_display_coords(ix, iy)
         w = self.canvas.winfo_width()
         h = self.canvas.winfo_height()
         
-        # Vertical Axis
-        l1 = self.canvas.create_line(d_ix, 0, d_ix, h, fill=inter_color, width=2, tags=f"group_{group_idx}")
-        
-        # Horizontal Axis (Slanted: next_top -> lowest)
+        # Horizontal Axis (Slanted: next_top -> lowest line, extended across canvas)
         d_nt = d(next_top)
         d_low = d(lowest)
         
         dx = d_low[0] - d_nt[0]
         dy = d_low[1] - d_nt[1]
         
+        # Calculate start/end points for the extended horizontal line
         if dx == 0:
+            m = 99999999 # effectively infinite slope
             l2 = self.canvas.create_line(d_nt[0], 0, d_nt[0], h, fill=inter_color, width=2, tags=f"group_{group_idx}")
         else:
             m = dy / dx
             y_left = d_nt[1] + m * (0 - d_nt[0])
             y_right = d_nt[1] + m * (w - d_nt[0])
             l2 = self.canvas.create_line(0, y_left, w, y_right, fill=inter_color, width=2, tags=f"group_{group_idx}")
+
+        # --- MODIFIED VERTICAL AXIS (Extended perpendicular line) ---
+        # The perpendicular line passes through (d_ix, d_iy) and has slope -1/m
+        if dx == 0: # If horizontal line is vertical (m is infinity)
+            # The vertical axis is horizontal, passing through (d_ix, d_iy)
+            l1 = self.canvas.create_line(0, d_ix, w, d_ix, fill=inter_color, width=2, tags=f"group_{group_idx}") 
+        elif dy == 0: # If horizontal line is truly horizontal (m is zero)
+            # The vertical axis is truly vertical, passing through (d_ix, d_iy)
+            l1 = self.canvas.create_line(d_ix, 0, d_ix, h, fill=inter_color, width=2, tags=f"group_{group_idx}")
+        else:
+            m_perp = -1.0 / m
+            # y = m_perp * (x - d_ix) + d_iy
+            
+            # Calculate start/end points for the extended vertical line
+            y_left_perp = d_iy + m_perp * (0 - d_ix)
+            y_right_perp = d_iy + m_perp * (w - d_ix)
+            
+            l1 = self.canvas.create_line(0, y_left_perp, w, y_right_perp, fill=inter_color, width=2, tags=f"group_{group_idx}")
 
         group_items.extend([l1, l2])
         
@@ -412,7 +417,7 @@ class ImageAnalysisApp:
         
         group_items.extend([l3, l4, l5, l6])
 
-        # Projection
+        # Projection (This is the original line from third point to its projection point)
         l7 = self.canvas.create_line(d_third[0], d_third[1], d_proj[0], d_proj[1], fill="black", width=2, dash=(4, 2), tags=f"group_{group_idx}")
         group_items.append(l7)
 
@@ -436,11 +441,11 @@ class ImageAnalysisApp:
         pos_at = get_offset_pos(d_hyp_a, d_hyp_b, centroid, offset=40)
         lbl_at = self.create_movable_label(pos_at[0], pos_at[1], meas["actual_throat"]["label"], group_idx, "actual_throat")
         
-        # Leg1 (Origin -> hyp_a)
+        # Leg1 (Origin -> hyp_a) 
         pos_l1 = get_offset_pos((d_ix, d_iy), d_hyp_a, centroid, offset=40)
         lbl_l1 = self.create_movable_label(pos_l1[0], pos_l1[1], meas["leg1"]["label"], group_idx, "leg1")
         
-        # Leg2 (Origin -> hyp_b)
+        # Leg2 (Origin -> hyp_b) 
         pos_l2 = get_offset_pos((d_ix, d_iy), d_hyp_b, centroid, offset=40)
         lbl_l2 = self.create_movable_label(pos_l2[0], pos_l2[1], meas["leg2"]["label"], group_idx, "leg2")
         
@@ -520,6 +525,8 @@ class ImageAnalysisApp:
             meas = result["measurements"]
             
             # Unpack points
+            top = const["top"]
+            ix, iy = const["intersection"] # Now the projection point
             hyp_a = const["hyp_a"]
             hyp_b = const["hyp_b"]
             third = const["third"]
@@ -539,8 +546,8 @@ class ImageAnalysisApp:
             draw.line([third, proj], fill="black", width=line_width)
 
             # Axes (White lines inside the triangle)
-            ix, iy = const["intersection"]
-            origin = (ix, iy)
+            origin = (ix, iy) # The new projection origin
+            # Leg Lines (Origin to Hypotenuse Endpoints)
             draw.line([origin, hyp_a], fill="white", width=line_width)
             draw.line([origin, hyp_b], fill="white", width=line_width)
 
@@ -583,7 +590,6 @@ class ImageAnalysisApp:
             draw.text(pos_at, meas["actual_throat"]["label"], fill="white", font=font_bold, anchor="mm")
             
             # Leg1
-            ix, iy = const["intersection"]
             origin = (ix, iy)
             def_l1 = get_default_offset_pos(origin, hyp_a, centroid, offset_val)
             pos_l1 = get_pos("leg1", def_l1)
@@ -771,3 +777,4 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = ImageAnalysisApp(root)
     root.mainloop()
+    
